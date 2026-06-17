@@ -49,7 +49,7 @@ const Login: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+		<div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
 			<div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-gray-100 animate-in zoom-in-95 duration-300">
 				<div className="text-center">
 					<div className="flex justify-center mb-4">
