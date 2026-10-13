@@ -13,6 +13,9 @@ dist/
 dist-ssr/
 *.local
 
+# Test coverage
+coverage/
+
 # Dependencies
 node_modules/
 

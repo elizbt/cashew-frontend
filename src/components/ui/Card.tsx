@@ -1,8 +1,6 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes } from "react";
 
-interface CardProps {
-	children: ReactNode;
-	className?: string;
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
 	variant?: "default" | "glass" | "emerald";
 }
 
@@ -10,6 +8,7 @@ export const Card = ({
 	children,
 	className = "",
 	variant = "default",
+	...props
 }: CardProps) => {
 	const variants = {
 		default: "bg-white border border-slate-100",
@@ -18,7 +17,10 @@ export const Card = ({
 	};
 
 	return (
-		<div className={`rounded-2xl shadow-sm ${variants[variant]} ${className}`}>
+		<div
+			className={`rounded-2xl shadow-sm ${variants[variant]} ${className}`}
+			{...props}
+		>
 			{children}
 		</div>
 	);

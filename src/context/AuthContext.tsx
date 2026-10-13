@@ -6,6 +6,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { authService } from "../services/api";
 import type { AuthResponse, User } from "../types/auth";
 import { STORAGE_KEYS } from "../types/storage";
 
@@ -13,7 +14,7 @@ interface AuthContextData {
 	user: User | null;
 	loading: boolean;
 	signIn: (response: AuthResponse) => void;
-	signOut: () => void;
+	signOut: () => Promise<void>;
 	isAuthenticated: boolean;
 }
 
@@ -26,22 +27,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		const storedToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
+		// The session itself now lives in an httpOnly cookie we can't read from
+		// JS, so this is an optimistic hydration from the last known profile,
+		// not proof the session is still valid. If the cookie has expired, the
+		// next API call gets a 401 and the response interceptor in
+		// services/api.ts clears this and redirects to /login.
 		const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
 
-		if (storedToken && storedUser) {
+		if (storedUser) {
 			setUser(JSON.parse(storedUser));
 		}
 		setLoading(false);
 	}, []);
 
-	const signIn = ({ user, token }: AuthResponse) => {
-		localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+	const signIn = ({ user }: AuthResponse) => {
 		localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
 		setUser(user);
 	};
 
-	const signOut = () => {
+	const signOut = async () => {
+		try {
+			await authService.logout();
+		} catch (error) {
+			console.error("Failed to invalidate session on the server:", error);
+		}
+
 		// Clear all keys from localStorage
 		Object.values(STORAGE_KEYS).forEach((key) => {
 			if (typeof key === "string") {

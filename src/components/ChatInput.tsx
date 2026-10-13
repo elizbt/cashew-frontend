@@ -24,6 +24,7 @@ export const ChatInput: React.FC = () => {
 		}
 	};
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `input` isn't read directly, but the effect must re-run on every keystroke to recompute scrollHeight
 	useEffect(() => {
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
@@ -32,7 +33,7 @@ export const ChatInput: React.FC = () => {
 				UI_CONFIG.MAX_TEXTAREA_HEIGHT,
 			)}px`;
 		}
-	}, []);
+	}, [input]);
 
 	return (
 		<div className="bg-white p-4 pb-8 backdrop-blur-sm">

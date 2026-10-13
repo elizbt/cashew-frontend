@@ -6,7 +6,10 @@ export interface User {
 
 export interface AuthResponse {
 	user: User;
-	token: string;
+	// Kept optional for backward compatibility: the backend may still include
+	// this in the response body, but auth now rides on an httpOnly session
+	// cookie (see services/api.ts) — the frontend no longer reads or stores it.
+	token?: string;
 }
 
 export interface RegisterResponse {
