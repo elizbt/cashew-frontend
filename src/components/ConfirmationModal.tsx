@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from "lucide-react";
 import type React from "react";
-import { useEffect } from "react";
+import { useRef } from "react";
+import { useDialogFocus } from "../hooks/use-dialog-focus";
 
 interface ConfirmationModalProps {
 	isOpen: boolean;
@@ -17,19 +18,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 	title,
 	message,
 }) => {
-	useEffect(() => {
-		if (!isOpen) return;
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
-		};
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [isOpen, onClose]);
+	const dialogRef = useRef<HTMLDivElement>(null);
+	useDialogFocus(dialogRef, isOpen, onClose);
 
 	if (!isOpen) return null;
 
 	return (
-		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled above; this is a mouse-only backdrop dismiss
+		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled by useDialogFocus; this is a mouse-only backdrop dismiss
 		// biome-ignore lint/a11y/noStaticElementInteractions: backdrop is not itself a control, just a dismiss target
 		<div
 			className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
@@ -37,6 +32,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 		>
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: onClick only stops backdrop-close propagation; not itself an interactive control */}
 			<div
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="confirmation-modal-title"

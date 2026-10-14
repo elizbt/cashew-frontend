@@ -3,7 +3,11 @@ import App from "./App";
 import { render, screen, withAuthedSession } from "./test/test-utils";
 
 vi.mock("./services/api", () => ({
-	authService: { login: vi.fn(), register: vi.fn() },
+	authService: {
+		login: vi.fn(),
+		register: vi.fn(),
+		restoreCsrfToken: vi.fn().mockResolvedValue(undefined),
+	},
 	chatService: {
 		getHistory: vi.fn().mockResolvedValue([]),
 		getChat: vi.fn(),

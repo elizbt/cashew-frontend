@@ -10,6 +10,9 @@ export interface AuthResponse {
 	// this in the response body, but auth now rides on an httpOnly session
 	// cookie (see services/api.ts) — the frontend no longer reads or stores it.
 	token?: string;
+	// Same value as the csrfToken cookie; see services/api.ts for why the
+	// frontend can't rely on reading the cookie.
+	csrfToken?: string;
 }
 
 export interface RegisterResponse {

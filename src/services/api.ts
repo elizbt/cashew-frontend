@@ -1,6 +1,10 @@
 import axios from "axios";
 import { APP_CONFIG } from "../config/constants";
-import type { LoginCredentials, RegisterData } from "../types/auth";
+import type {
+	AuthResponse,
+	LoginCredentials,
+	RegisterData,
+} from "../types/auth";
 import { STORAGE_KEYS } from "../types/storage";
 
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -16,6 +20,12 @@ const CHAT_TIMEOUT_MS = 60000;
 const CSRF_COOKIE_NAME = "csrfToken";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 const CSRF_PROTECTED_METHODS = new Set(["post", "delete"]);
+
+// The backend returns the CSRF token in the /login body and on GET /csrf as
+// well as in the csrfToken cookie: when the API is on a different host than
+// the frontend, document.cookie only exposes the frontend's own cookies, so
+// the cookie alone would leave every POST/DELETE /chat failing with 403.
+let csrfToken: string | null = null;
 
 function readCsrfCookie(): string | null {
 	const match = document.cookie.match(
@@ -35,9 +45,9 @@ api.interceptors.request.use((config) => {
 	const isChatRoute = config.url?.startsWith("/chat");
 
 	if (method && isChatRoute && CSRF_PROTECTED_METHODS.has(method)) {
-		const csrfToken = readCsrfCookie();
-		if (csrfToken) {
-			config.headers[CSRF_HEADER_NAME] = csrfToken;
+		const token = csrfToken ?? readCsrfCookie();
+		if (token) {
+			config.headers[CSRF_HEADER_NAME] = token;
 		}
 	}
 
@@ -52,6 +62,8 @@ api.interceptors.response.use(
 			error.config?.url?.endsWith("/register");
 
 		if (error.response?.status === 401 && !isAuthRequest) {
+			csrfToken = null;
+			localStorage.removeItem(STORAGE_KEYS.TOKEN);
 			localStorage.removeItem(STORAGE_KEYS.USER);
 			window.location.href = "/login";
 		}
@@ -61,8 +73,14 @@ api.interceptors.response.use(
 
 export const authService = {
 	async login(credentials: LoginCredentials) {
-		const response = await api.post("/login", credentials);
+		const response = await api.post<AuthResponse>("/login", credentials);
+		csrfToken = response.data.csrfToken ?? null;
 		return response.data;
+	},
+
+	async restoreCsrfToken() {
+		const response = await api.get<{ csrfToken: string }>("/csrf");
+		csrfToken = response.data.csrfToken;
 	},
 
 	async register(data: RegisterData) {
@@ -71,7 +89,11 @@ export const authService = {
 	},
 
 	async logout() {
-		await api.post("/logout");
+		try {
+			await api.post("/logout");
+		} finally {
+			csrfToken = null;
+		}
 	},
 };
 

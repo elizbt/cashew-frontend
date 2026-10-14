@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from "../types/storage";
 vi.mock("../services/api", () => ({
 	authService: {
 		logout: vi.fn(),
+		restoreCsrfToken: vi.fn(),
 	},
 }));
 
@@ -17,6 +18,7 @@ let originalLocation: Location;
 
 beforeEach(() => {
 	mockedAuthService.logout.mockReset().mockResolvedValue(undefined);
+	mockedAuthService.restoreCsrfToken.mockReset().mockResolvedValue(undefined);
 	originalLocation = window.location;
 	// @ts-expect-error - jsdom navigation stub
 	delete window.location;
@@ -30,6 +32,40 @@ afterEach(() => {
 });
 
 describe("AuthContext", () => {
+	it("removes the legacy JWT left in localStorage by the pre-cookie version on mount", async () => {
+		localStorage.setItem(STORAGE_KEYS.TOKEN, "legacy-jwt");
+
+		const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBeNull();
+	});
+
+	it("restores the CSRF token when a cached session is hydrated, but not without one", async () => {
+		const first = renderHook(() => useAuth(), { wrapper: AuthProvider });
+		await waitFor(() => expect(first.result.current.loading).toBe(false));
+		expect(mockedAuthService.restoreCsrfToken).not.toHaveBeenCalled();
+		first.unmount();
+
+		localStorage.setItem(
+			STORAGE_KEYS.USER,
+			JSON.stringify({ id: "1", name: "Ana", email: "ana@test.com" }),
+		);
+		const second = renderHook(() => useAuth(), { wrapper: AuthProvider });
+		await waitFor(() => expect(second.result.current.loading).toBe(false));
+		expect(mockedAuthService.restoreCsrfToken).toHaveBeenCalledTimes(1);
+	});
+
+	it("treats a corrupted cached profile as no session instead of crashing", async () => {
+		localStorage.setItem(STORAGE_KEYS.USER, "{not json");
+
+		const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		expect(result.current.isAuthenticated).toBe(false);
+		expect(localStorage.getItem(STORAGE_KEYS.USER)).toBeNull();
+	});
+
 	it("starts in a loading state and resolves to unauthenticated with no stored session", async () => {
 		const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
 

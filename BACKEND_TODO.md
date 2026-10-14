@@ -18,9 +18,8 @@ ou, se preferir apontar campo a campo:
 ```
 (o frontend já sabe interpretar ambos os formatos — ver `ApiError` em `src/types/auth.ts`).
 
-### 2. Rate limiting em `/login` e `/register`
-**Problema:** nenhuma das duas rotas parece ter proteção contra força bruta / enumeração de e-mails.
-**Ação:** aplicar rate limiting por IP e/ou por e-mail (ex.: 5 tentativas/min) nessas duas rotas específicas.
+### 2. ~~Rate limiting em `/login` e `/register`~~ → **Feito (backend#4)**
+5 req/min por IP, com `trustProxy: 1` para que um `X-Forwarded-For` forjado não troque a chave do limite.
 
 ### 3. Padronizar o formato de resposta de `GET /chats`
 **Problema:** o frontend (`ChatContext.loadHistory`, `src/context/ChatContext.tsx`) hoje tenta adivinhar o formato da resposta: aceita um array puro, ou um objeto cujo primeiro valor seja um array, e tenta várias chaves possíveis para o título (`title`, `name`, `subject`, `lastMessage`) e para o id (`id`, `_id`, `chatId`). Isso é sinal de que o contrato da API não está estável/documentado.
@@ -41,16 +40,13 @@ Assim que isso estiver garantido, eu simplifico a lógica de normalização no f
 
 ## Média prioridade
 
-### 5. ~~Reconsiderar onde o token de autenticação é guardado~~ → **Feito no frontend, falta só o `CORS_ORIGIN` em produção**
-**Status:** o backend já suporta os dois mecanismos em paralelo (cookie `httpOnly` + token no corpo, propositalmente, pra não quebrar nada). O frontend foi migrado para o mecanismo seguro:
-- ✅ `axios.create({ withCredentials: true })` em `src/services/api.ts`.
-- ✅ Parou de guardar o token em `localStorage` e de mandar `Authorization: Bearer` manualmente — `AuthContext` agora só guarda o perfil do usuário (não-sensível) para hidratação otimista da UI; a sessão de verdade é o cookie `httpOnly`, invisível para o JS.
-- ✅ Lê o cookie `csrfToken` (não-httpOnly) via `document.cookie` e reenvia em `X-CSRF-Token` em todo `POST`/`DELETE` para `/chat` (`sendMessage` e `deleteChat`). Não é enviado em `GET`, nem em `/login`/`/register`.
-- ✅ Botão "Sair" agora chama `POST /logout` (via `authService.logout`) antes de limpar o estado local — best-effort: mesmo que a chamada falhe, o frontend ainda desloga localmente e redireciona.
+### 5. ~~Reconsiderar onde o token de autenticação é guardado~~ → **Feito (frontend#1 + backend#4)**
+- Sessão em cookie `httpOnly`; o frontend não guarda mais token (e apaga o JWT legado do `localStorage` ao carregar).
+- CSRF double-submit: o token vem no corpo de `/login` e em `GET /csrf` (usado após recarregar a página), além do cookie `csrfToken`. O frontend guarda em memória e reenvia em `X-CSRF-Token` em `POST`/`DELETE` para `/chat`. Isso é necessário porque, com a API em outro host, `document.cookie` não enxerga o cookie da API.
 
-**Ação que falta, só do lado do backend:** definir `CORS_ORIGIN` no `.env` de produção com o domínio real do frontend (não pode ser `*` quando `Access-Control-Allow-Credentials: true` está ativo — o navegador rejeita essa combinação). Sem isso, o cookie de sessão não vai ser aceito em produção mesmo com o frontend já pronto.
-
-**Nota:** como a sessão agora é um cookie que o JS não consegue ler, o `AuthContext` faz uma hidratação **otimista** a partir do perfil salvo em `localStorage` ao carregar a página — se o cookie já tiver expirado, a primeira chamada à API vai devolver `401` e o interceptor de resposta já limpa esse estado e redireciona para `/login` (ver `src/services/api.ts`).
+**Requisitos de deploy:**
+- `CORS_ORIGIN` com o domínio real do frontend (sem ela o backend não sobe em produção).
+- Frontend e API no **mesmo site** (ex.: `app.dominio.com` e `api.dominio.com`): os cookies são `SameSite=Lax` e não vão em requisições entre sites diferentes.
 
 ### 6. Confirmar o timeout esperado de `POST /chat`
 **Contexto:** acabei de configurar o frontend para esperar até **60 segundos** numa chamada de `/chat` (contra 15s nas demais rotas), já que a rota provavelmente faz RAG + geração via LLM e pode demorar mais que um CRUD comum.
@@ -65,8 +61,8 @@ Assim que isso estiver garantido, eu simplifico a lógica de normalização no f
 - `X-Frame-Options: DENY` (ou `frame-ancestors 'none'` na CSP)
 - `Referrer-Policy: strict-origin-when-cross-origin`
 
-### 8. Garantir HTTPS em produção
-**Ação:** confirmar que a URL de produção de `VITE_API_URL` é sempre `https://`, e que o backend rejeita (ou redireciona) tráfego HTTP puro.
+### 8. ~~Garantir HTTPS em produção~~ → **Redirect feito (backend#4)**
+O backend redireciona HTTP→HTTPS em produção (exceto `/health`). Falta só confirmar que `VITE_API_URL` de produção é `https://`.
 
 ---
 
@@ -85,11 +81,11 @@ Assim que isso estiver garantido, eu simplifico a lógica de normalização no f
 ## Resumo rápido (para copiar em um card/issue)
 
 - [ ] Validar política de senha também no `/register` (não confiar só no frontend)
-- [ ] Rate limiting em `/login` e `/register`
+- [x] Rate limiting em `/login` e `/register`
 - [ ] Padronizar `GET /chats` → sempre `[{ id, title }]`
 - [ ] Padronizar `POST /chat` → sempre `{ response, chatId, sources? }`
-- [x] ~~Decidir sobre migrar token de `localStorage` para cookie `httpOnly` (+ CSRF)~~ — frontend migrado; falta só `CORS_ORIGIN` de produção no backend
+- [x] ~~Decidir sobre migrar token de `localStorage` para cookie `httpOnly` (+ CSRF)~~ — feito; no deploy: `CORS_ORIGIN` + frontend e API no mesmo site
 - [ ] Confirmar se 60s de timeout no `/chat` é suficiente, ou avaliar streaming
 - [ ] Cabeçalhos de segurança (CSP, HSTS, X-Frame-Options etc.) no servidor/proxy, não no HTML
-- [ ] Garantir HTTPS obrigatório em produção
+- [x] Redirect HTTPS no backend (falta confirmar `VITE_API_URL` com `https://`)
 - [ ] (Opcional) IDs estáveis de mensagem em `GET /chat/:id`

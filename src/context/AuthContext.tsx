@@ -18,6 +18,18 @@ interface AuthContextData {
 	isAuthenticated: boolean;
 }
 
+function readStoredUser(): User | null {
+	const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+	if (!storedUser) return null;
+	try {
+		return JSON.parse(storedUser) as User;
+	} catch {
+		// Corrupted cache is equivalent to no cache: the user just logs in again.
+		localStorage.removeItem(STORAGE_KEYS.USER);
+		return null;
+	}
+}
+
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
@@ -32,10 +44,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 		// not proof the session is still valid. If the cookie has expired, the
 		// next API call gets a 401 and the response interceptor in
 		// services/api.ts clears this and redirects to /login.
-		const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+		// Sessions from before the cookie migration left a readable JWT here;
+		// the backend still accepts it as Bearer, so it must not linger.
+		localStorage.removeItem(STORAGE_KEYS.TOKEN);
 
+		const storedUser = readStoredUser();
 		if (storedUser) {
-			setUser(JSON.parse(storedUser));
+			setUser(storedUser);
+			// The in-memory CSRF token is lost on reload. Best-effort: a 401
+			// here is already handled by the response interceptor.
+			authService.restoreCsrfToken().catch((error) => {
+				console.error("Failed to restore CSRF token:", error);
+			});
 		}
 		setLoading(false);
 	}, []);

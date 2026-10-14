@@ -9,10 +9,11 @@ import {
 	expect,
 	it,
 } from "vitest";
+import { APP_CONFIG } from "../config/constants";
 import { STORAGE_KEYS } from "../types/storage";
 import api, { authService, chatService } from "./api";
 
-const BASE_URL = "http://localhost:3333";
+const BASE_URL = APP_CONFIG.API_URL;
 
 const server = setupServer(
 	http.post(`${BASE_URL}/login`, async ({ request }) => {
@@ -151,13 +152,58 @@ describe("api request interceptor: CSRF header", () => {
 	});
 });
 
+describe("CSRF token from the response body (API on another host)", () => {
+	it("uses the csrfToken returned by /login when the cookie isn't readable, until logout", async () => {
+		server.use(
+			http.post(`${BASE_URL}/login`, () =>
+				HttpResponse.json({ user: { id: "1" }, csrfToken: "body-csrf" }),
+			),
+			http.post(`${BASE_URL}/chat`, ({ request }) => {
+				expect(request.headers.get("X-CSRF-Token")).toBe("body-csrf");
+				return HttpResponse.json({ response: "ok", chatId: "1" });
+			}),
+		);
+
+		await authService.login({ email: "a@a.com", password: "123456" });
+		await chatService.sendMessage("oi");
+
+		await authService.logout();
+		server.use(
+			http.post(`${BASE_URL}/chat`, ({ request }) => {
+				expect(request.headers.get("X-CSRF-Token")).toBeNull();
+				return HttpResponse.json({ response: "ok", chatId: "1" });
+			}),
+		);
+		await chatService.sendMessage("oi");
+	});
+
+	it("restores the token from GET /csrf after a reload", async () => {
+		server.use(
+			http.get(`${BASE_URL}/csrf`, () =>
+				HttpResponse.json({ csrfToken: "restored-csrf" }),
+			),
+			http.delete(`${BASE_URL}/chat/:id`, ({ request }) => {
+				expect(request.headers.get("X-CSRF-Token")).toBe("restored-csrf");
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+
+		await authService.restoreCsrfToken();
+		await chatService.deleteChat("chat-1");
+
+		await authService.logout();
+	});
+});
+
 describe("api response interceptor (401 handling)", () => {
 	it("clears the cached user profile and redirects to /login on a 401 from a protected route", async () => {
 		localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({ id: "1" }));
+		localStorage.setItem(STORAGE_KEYS.TOKEN, "legacy-jwt");
 
 		await expect(api.get("/protected-expired")).rejects.toBeTruthy();
 
 		expect(localStorage.getItem(STORAGE_KEYS.USER)).toBeNull();
+		expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBeNull();
 		expect(window.location.href).toBe("/login");
 	});
 

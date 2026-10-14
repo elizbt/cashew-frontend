@@ -6,6 +6,7 @@ import { AuthProvider } from "./AuthContext";
 import { ChatProvider, useChat } from "./ChatContext";
 
 vi.mock("../services/api", () => ({
+	authService: { restoreCsrfToken: vi.fn().mockResolvedValue(undefined) },
 	chatService: {
 		getHistory: vi.fn(),
 		getChat: vi.fn(),
@@ -194,6 +195,27 @@ describe("ChatContext.sendMessage", () => {
 		expect(result.current.isLoading).toBe(false);
 		expect(result.current.messages[1].role).toBe("assistant");
 		expect(result.current.messages[1].content).toContain("Erro 500");
+	});
+
+	it("still sends the message when crypto.randomUUID is unavailable (plain-HTTP LAN access)", async () => {
+		vi.stubGlobal("crypto", {});
+		try {
+			const result = await renderAuthedChat();
+			mockedChatService.sendMessage.mockResolvedValue({
+				response: "ok",
+				chatId: "chat-1",
+			});
+
+			await act(async () => {
+				await result.current.sendMessage("oi");
+			});
+
+			const ids = result.current.messages.map((m) => m.id);
+			expect(ids).toHaveLength(2);
+			expect(new Set(ids).size).toBe(2);
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it("registers a new chat id and persists it as the last opened chat", async () => {

@@ -30,8 +30,17 @@ interface ApiErrorResponse {
 	};
 }
 
+// crypto.randomUUID only exists in secure contexts (HTTPS or localhost);
+// opening the dev server by LAN IP over plain HTTP would otherwise throw
+// before sendMessage's try block and silently drop the message.
+let fallbackIdCounter = 0;
+
 function createMessageId() {
-	return crypto.randomUUID();
+	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+		return crypto.randomUUID();
+	}
+	fallbackIdCounter += 1;
+	return `msg-${Date.now()}-${fallbackIdCounter}`;
 }
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({

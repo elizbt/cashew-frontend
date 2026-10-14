@@ -122,4 +122,42 @@ describe("ConfirmationModal", () => {
 		expect(dialog).toHaveAttribute("aria-modal", "true");
 		expect(dialog).toHaveAccessibleName("Excluir conversa");
 	});
+
+	it("moves focus into the dialog, keeps Tab inside it, and restores focus on close", async () => {
+		const user = userEvent.setup();
+		const trigger = document.createElement("button");
+		document.body.appendChild(trigger);
+		trigger.focus();
+
+		const { rerender } = render(
+			<ConfirmationModal
+				isOpen
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				title="Excluir"
+				message="Tem certeza?"
+			/>,
+		);
+
+		const closeButton = screen.getByRole("button", { name: "Fechar" });
+		const confirmButton = screen.getByRole("button", { name: "Excluir" });
+		expect(closeButton).toHaveFocus();
+
+		await user.tab({ shift: true });
+		expect(confirmButton).toHaveFocus();
+		await user.tab();
+		expect(closeButton).toHaveFocus();
+
+		rerender(
+			<ConfirmationModal
+				isOpen={false}
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				title="Excluir"
+				message="Tem certeza?"
+			/>,
+		);
+		expect(trigger).toHaveFocus();
+		trigger.remove();
+	});
 });
