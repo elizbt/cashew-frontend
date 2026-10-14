@@ -160,4 +160,27 @@ describe("ConfirmationModal", () => {
 		expect(trigger).toHaveFocus();
 		trigger.remove();
 	});
+
+	it("sends focus to the fallback when the element that opened it was removed", () => {
+		const fallback = document.createElement("button");
+		document.body.appendChild(fallback);
+		const opener = document.createElement("button");
+		document.body.appendChild(opener);
+		opener.focus();
+		const fallbackFocusRef = { current: fallback };
+
+		const props = {
+			onClose: vi.fn(),
+			onConfirm: vi.fn(),
+			title: "Excluir",
+			message: "Tem certeza?",
+			fallbackFocusRef,
+		};
+		const { rerender } = render(<ConfirmationModal isOpen {...props} />);
+		opener.remove();
+		rerender(<ConfirmationModal isOpen={false} {...props} />);
+
+		expect(fallback).toHaveFocus();
+		fallback.remove();
+	});
 });

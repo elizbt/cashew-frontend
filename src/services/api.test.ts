@@ -11,7 +11,7 @@ import {
 } from "vitest";
 import { APP_CONFIG } from "../config/constants";
 import { STORAGE_KEYS } from "../types/storage";
-import api, { authService, chatService } from "./api";
+import api, { authService, chatService, resetCsrfStateForTests } from "./api";
 
 const BASE_URL = APP_CONFIG.API_URL;
 
@@ -54,6 +54,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
 	server.resetHandlers();
 	clearCsrfCookie();
+	resetCsrfStateForTests();
 });
 afterAll(() => server.close());
 
@@ -192,6 +193,91 @@ describe("CSRF token from the response body (API on another host)", () => {
 		await chatService.deleteChat("chat-1");
 
 		await authService.logout();
+	});
+});
+
+describe("CSRF recovery", () => {
+	it("makes a write fired during the boot-time restore wait for it", async () => {
+		let releaseRestore: () => void = () => undefined;
+		server.use(
+			http.get(`${BASE_URL}/csrf`, async () => {
+				await new Promise<void>((resolve) => {
+					releaseRestore = resolve;
+				});
+				return HttpResponse.json({ csrfToken: "late-csrf" });
+			}),
+			http.post(`${BASE_URL}/chat`, ({ request }) => {
+				expect(request.headers.get("X-CSRF-Token")).toBe("late-csrf");
+				return HttpResponse.json({ response: "ok", chatId: "1" });
+			}),
+		);
+
+		const restore = authService.restoreCsrfToken();
+		const send = chatService.sendMessage("oi");
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		releaseRestore();
+
+		await restore;
+		await send;
+	});
+
+	it("refetches the token and retries once on 403 CSRF_INVALID (stale token from another tab)", async () => {
+		let attempts = 0;
+		server.use(
+			http.get(`${BASE_URL}/csrf`, () =>
+				HttpResponse.json({ csrfToken: "fresh-csrf" }),
+			),
+			http.post(`${BASE_URL}/chat`, ({ request }) => {
+				attempts++;
+				if (request.headers.get("X-CSRF-Token") !== "fresh-csrf") {
+					return HttpResponse.json(
+						{
+							code: "CSRF_INVALID",
+							message: "CSRF token inválido ou ausente.",
+						},
+						{ status: 403 },
+					);
+				}
+				return HttpResponse.json({ response: "ok", chatId: "1" });
+			}),
+		);
+		setCsrfCookie("stale-csrf");
+
+		const data = await chatService.sendMessage("oi");
+
+		expect(data.response).toBe("ok");
+		expect(attempts).toBe(2);
+	});
+
+	it("gives up after one retry instead of looping when the token is still rejected", async () => {
+		let attempts = 0;
+		server.use(
+			http.get(`${BASE_URL}/csrf`, () =>
+				HttpResponse.json({ csrfToken: "still-wrong" }),
+			),
+			http.post(`${BASE_URL}/chat`, () => {
+				attempts++;
+				return HttpResponse.json({ code: "CSRF_INVALID" }, { status: 403 });
+			}),
+		);
+
+		await expect(chatService.sendMessage("oi")).rejects.toMatchObject({
+			response: { status: 403 },
+		});
+		expect(attempts).toBe(2);
+	});
+
+	it("does not retry a 403 that is not a CSRF failure", async () => {
+		let attempts = 0;
+		server.use(
+			http.delete(`${BASE_URL}/chat/:id`, () => {
+				attempts++;
+				return HttpResponse.json({ message: "forbidden" }, { status: 403 });
+			}),
+		);
+
+		await expect(chatService.deleteChat("chat-1")).rejects.toBeTruthy();
+		expect(attempts).toBe(1);
 	});
 });
 

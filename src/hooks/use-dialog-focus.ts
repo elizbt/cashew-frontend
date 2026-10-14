@@ -1,7 +1,13 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 
-const FOCUSABLE_SELECTOR =
-	'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE_SELECTOR = [
+	"a[href]",
+	"button:not([disabled])",
+	"textarea:not([disabled])",
+	"input:not([disabled])",
+	"select:not([disabled])",
+	'[tabindex]:not([tabindex="-1"])',
+].join(", ");
 
 // Modal dialog keyboard behavior per the WAI-ARIA dialog pattern
 // (https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/): focus moves into
@@ -11,11 +17,16 @@ export function useDialogFocus(
 	dialogRef: RefObject<HTMLElement | null>,
 	isOpen: boolean,
 	onClose: () => void,
+	// Where focus goes on close when the opener is gone — e.g. the history
+	// item whose delete button opened the modal was just removed.
+	fallbackFocusRef?: RefObject<HTMLElement | null>,
 ) {
 	// Callers usually pass an inline arrow; keeping it in a ref stops the
 	// effect from re-running (and re-stealing focus) on every parent render.
 	const onCloseRef = useRef(onClose);
-	onCloseRef.current = onClose;
+	useLayoutEffect(() => {
+		onCloseRef.current = onClose;
+	});
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -53,7 +64,10 @@ export function useDialogFocus(
 		document.addEventListener("keydown", handleKeyDown);
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
-			previouslyFocused?.focus?.();
+			const target = previouslyFocused?.isConnected
+				? previouslyFocused
+				: fallbackFocusRef?.current;
+			target?.focus?.();
 		};
-	}, [dialogRef, isOpen]);
+	}, [dialogRef, isOpen, fallbackFocusRef]);
 }

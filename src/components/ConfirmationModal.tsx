@@ -1,6 +1,6 @@
 import { AlertTriangle, X } from "lucide-react";
 import type React from "react";
-import { useRef } from "react";
+import { type RefObject, useRef } from "react";
 import { useDialogFocus } from "../hooks/use-dialog-focus";
 
 interface ConfirmationModalProps {
@@ -9,6 +9,7 @@ interface ConfirmationModalProps {
 	onConfirm: () => void;
 	title: string;
 	message: string;
+	fallbackFocusRef?: RefObject<HTMLElement | null>;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -17,9 +18,10 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 	onConfirm,
 	title,
 	message,
+	fallbackFocusRef,
 }) => {
 	const dialogRef = useRef<HTMLDivElement>(null);
-	useDialogFocus(dialogRef, isOpen, onClose);
+	useDialogFocus(dialogRef, isOpen, onClose, fallbackFocusRef);
 
 	if (!isOpen) return null;
 
