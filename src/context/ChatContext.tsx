@@ -23,10 +23,30 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
+interface ApiErrorResponse {
+	response?: {
+		status?: number;
+		data?: unknown;
+	};
+}
+
+// crypto.randomUUID only exists in secure contexts (HTTPS or localhost);
+// opening the dev server by LAN IP over plain HTTP would otherwise throw
+// before sendMessage's try block and silently drop the message.
+let fallbackIdCounter = 0;
+
+function createMessageId() {
+	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+		return crypto.randomUUID();
+	}
+	fallbackIdCounter += 1;
+	return `msg-${Date.now()}-${fallbackIdCounter}`;
+}
+
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
-	const { isAuthenticated, user } = useAuth();
+	const { isAuthenticated } = useAuth();
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 	const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
@@ -95,7 +115,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			setIsLoading(true);
 			try {
 				const data = await chatService.getChat(id);
-				setMessages(data.messages || []);
+				const loadedMessages = (data.messages || []).map((msg) => ({
+					...msg,
+					id: msg.id || createMessageId(),
+				}));
+				setMessages(loadedMessages);
 				setCurrentChatId(id);
 				localStorage.setItem(STORAGE_KEYS.LAST_CHAT_ID, id);
 			} catch (error) {
@@ -137,15 +161,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		}
 	}, [messages, currentChatId]);
 
-	interface ApiErrorResponse {
-		response?: {
-			status?: number;
-			data?: any;
-		};
-	}
-
 	const sendMessage = async (content: string) => {
-		const userMessage: Message = { role: "user", content };
+		const userMessage: Message = {
+			id: createMessageId(),
+			role: "user",
+			content,
+		};
 		setMessages((prev) => [...prev, userMessage]);
 		setIsLoading(true);
 
@@ -172,6 +193,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			}
 
 			const assistantMessage: Message = {
+				id: createMessageId(),
 				role: "assistant",
 				content: String(responseContent),
 				sources: Array.isArray(data.sources) ? data.sources : [],
@@ -188,6 +210,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		} catch (error: unknown) {
 			const err = error as ApiErrorResponse;
 			const errorMessage: Message = {
+				id: createMessageId(),
 				role: "assistant",
 				content: `Erro ${err.response?.status || ""}: Não foi possível obter resposta do servidor. Verifique se o backend está rodando corretamente.`,
 			};

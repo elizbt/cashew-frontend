@@ -95,7 +95,7 @@ const Register: React.FC = () => {
 					</p>
 				</div>
 
-				<form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+				<form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
 					{error && (
 						<div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-100">
 							{error}
@@ -176,6 +176,7 @@ const Register: React.FC = () => {
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
+									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 									className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
 								>
 									{showPassword ? (

@@ -35,12 +35,8 @@ export const ChatArea: React.FC = () => {
 						<Suggestions />
 					) : (
 						<div className="flex flex-col pb-4">
-							{messages.map((msg, index) => (
-								<MessageItem
-									/* biome-ignore lint/suspicious/noArrayIndexKey: index used for unique keys */
-									key={`${msg.role}-${index}-${(msg.content || "").substring(0, 20)}`}
-									message={msg}
-								/>
+							{messages.map((msg) => (
+								<MessageItem key={msg.id} message={msg} />
 							))}
 							{isLoading && <TypingIndicator />}
 						</div>

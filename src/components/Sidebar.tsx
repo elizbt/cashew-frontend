@@ -1,5 +1,5 @@
 import { LogOut, MessageSquare, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useChat } from "../context/ChatContext";
 import ConfirmationModal from "./ConfirmationModal";
@@ -10,6 +10,7 @@ export const Sidebar: React.FC = () => {
 		useChat();
 	const { user, signOut } = useAuth();
 
+	const newChatButtonRef = useRef<HTMLButtonElement>(null);
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [chatToDelete, setChatToDelete] = useState<string | null>(null);
 
@@ -29,6 +30,7 @@ export const Sidebar: React.FC = () => {
 		<div className="w-64 bg-primary h-screen flex flex-col text-emerald-50">
 			<div className="p-4">
 				<Button
+					ref={newChatButtonRef}
 					variant="outline"
 					onClick={startNewChat}
 					className="w-full flex gap-2"
@@ -104,6 +106,7 @@ export const Sidebar: React.FC = () => {
 				isOpen={isDeleteModalOpen}
 				onClose={() => setIsDeleteModalOpen(false)}
 				onConfirm={handleConfirmDelete}
+				fallbackFocusRef={newChatButtonRef}
 				title="Excluir conversa"
 				message="Tem certeza que deseja excluir esta conversa? Esta ação não poderá ser desfeita e todo o histórico será perdido."
 			/>

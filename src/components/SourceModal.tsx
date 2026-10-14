@@ -1,4 +1,6 @@
 import { BookOpen, X } from "lucide-react";
+import { useRef } from "react";
+import { useDialogFocus } from "../hooks/use-dialog-focus";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
 
@@ -36,19 +38,37 @@ export const SourceModal: React.FC<SourceModalProps> = ({
 	onClose,
 	sources,
 }) => {
+	const dialogRef = useRef<HTMLDivElement>(null);
+	useDialogFocus(dialogRef, isOpen, onClose);
+
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-			<Card className="max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled by useDialogFocus; this is a mouse-only backdrop dismiss
+		// biome-ignore lint/a11y/noStaticElementInteractions: backdrop is not itself a control, just a dismiss target
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+			onClick={onClose}
+		>
+			<Card
+				ref={dialogRef}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="source-modal-title"
+				onClick={(e) => e.stopPropagation()}
+				className="max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200"
+			>
 				<div className="flex items-center justify-between p-4 border-b border-emerald-100 bg-emerald-50/30">
 					<div className="flex items-center gap-2 text-primary">
 						<BookOpen size={20} />
-						<h3 className="font-semibold text-lg">Fontes e Referências</h3>
+						<h3 id="source-modal-title" className="font-semibold text-lg">
+							Fontes e Referências
+						</h3>
 					</div>
 					<Button
 						variant="ghost"
 						onClick={onClose}
+						aria-label="Fechar"
 						className="p-1 rounded-full"
 					>
 						<X size={20} />
