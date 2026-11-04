@@ -18,9 +18,14 @@ export const ChatArea: React.FC = () => {
 		}
 	}, []);
 
+	// The last message id changes both when a message is appended and when
+	// another conversation is opened, even one with the same message count.
+	const lastMessageId = messages.at(-1)?.id;
+
 	useEffect(() => {
+		if (!lastMessageId && !isLoading) return;
 		scrollToBottom();
-	}, [scrollToBottom]);
+	}, [lastMessageId, isLoading, scrollToBottom]);
 
 	return (
 		<div className="flex-1 flex flex-col bg-white relative">

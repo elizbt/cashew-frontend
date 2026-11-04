@@ -43,6 +43,20 @@ function createMessageId() {
 	return `msg-${Date.now()}-${fallbackIdCounter}`;
 }
 
+function readStoredHistory(): ChatHistoryItem[] {
+	const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
+	if (!savedHistory) return [];
+	try {
+		const parsed: unknown = JSON.parse(savedHistory);
+		return Array.isArray(parsed) ? (parsed as ChatHistoryItem[]) : [];
+	} catch {
+		// Corrupted cache is equivalent to no cache: the next successful
+		// /chats call rewrites it.
+		localStorage.removeItem(STORAGE_KEYS.HISTORY);
+		return [];
+	}
+}
+
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
@@ -72,16 +86,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 				}
 			}
 
-			const normalizedHistory: ChatHistoryItem[] = historyArray.map(
-				(item: ChatHistoryItem) => ({
-					id: item.id || item._id || item.chatId || String(Math.random()),
-					title:
-						item.title ||
-						item.name ||
-						item.subject ||
-						item.lastMessage ||
-						"Conversa sem título",
-				}),
+			// An item without an id can't be opened or deleted, so it is dropped
+			// instead of getting a made-up id that would 404 on click.
+			const normalizedHistory: ChatHistoryItem[] = historyArray.flatMap(
+				(item: ChatHistoryItem) => {
+					const id = item.id || item._id || item.chatId;
+					if (!id) return [];
+					return [
+						{
+							id,
+							title:
+								item.title ||
+								item.name ||
+								item.subject ||
+								item.lastMessage ||
+								"Conversa sem título",
+						},
+					];
+				},
 			);
 
 			setChatHistory(normalizedHistory);
@@ -91,10 +113,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			);
 		} catch (error) {
 			console.error("Failed to load history from server:", error);
-			const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
-			if (savedHistory) {
-				setChatHistory(JSON.parse(savedHistory));
-			}
+			setChatHistory(readStoredHistory());
 		}
 	}, [isAuthenticated]);
 
@@ -151,15 +170,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			setCurrentChatId(null);
 		}
 	}, [isAuthenticated, loadHistory, loadChat]);
-
-	useEffect(() => {
-		if (currentChatId && messages.length > 0) {
-			localStorage.setItem(
-				STORAGE_KEYS.CHAT_CACHE(currentChatId),
-				JSON.stringify(messages),
-			);
-		}
-	}, [messages, currentChatId]);
 
 	const sendMessage = async (content: string) => {
 		const userMessage: Message = {
@@ -227,7 +237,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			const newHistory = chatHistory.filter((item) => item.id !== id);
 			setChatHistory(newHistory);
 			localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(newHistory));
-			localStorage.removeItem(STORAGE_KEYS.CHAT_CACHE(id));
 
 			if (currentChatId === id) {
 				startNewChat();

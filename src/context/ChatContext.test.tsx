@@ -105,9 +105,52 @@ describe("ChatContext.loadHistory normalization", () => {
 		await waitFor(() => expect(result.current.chatHistory).toHaveLength(1));
 		expect(result.current.chatHistory[0].id).toBe("cached");
 	});
+	it("starts with an empty history when the cached history is corrupted", async () => {
+		localStorage.setItem(STORAGE_KEYS.HISTORY, "{not json");
+		mockedChatService.getHistory.mockRejectedValue(new Error("network down"));
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const { result } = renderHook(() => useChat(), { wrapper });
+
+		await waitFor(() =>
+			expect(localStorage.getItem(STORAGE_KEYS.HISTORY)).toBeNull(),
+		);
+		expect(result.current.chatHistory).toEqual([]);
+	});
+
+	it("drops history items that have no id instead of inventing one", async () => {
+		mockedChatService.getHistory.mockResolvedValue([
+			{ id: "1", title: "Com id" },
+			// @ts-expect-error - raw backend item missing every id field
+			{ title: "Sem id" },
+		]);
+		const { result } = renderHook(() => useChat(), { wrapper });
+
+		await waitFor(() => expect(result.current.chatHistory).toHaveLength(1));
+		expect(result.current.chatHistory[0]?.id).toBe("1");
+	});
 });
 
 describe("ChatContext.sendMessage", () => {
+	it("does not keep conversation messages in localStorage", async () => {
+		const result = await renderAuthedChat();
+		mockedChatService.sendMessage.mockResolvedValue({
+			response: "resposta",
+			chatId: "a",
+		});
+
+		await act(async () => {
+			await result.current.sendMessage("pergunta pessoal");
+		});
+
+		const keys = Object.keys(localStorage);
+		expect(keys.some((key) => key.startsWith("@Castanha:chat_cache_"))).toBe(
+			false,
+		);
+		const stored = keys.map((key) => localStorage.getItem(key)).join("\n");
+		expect(stored).not.toContain("resposta");
+	});
+
 	it("appends the user message optimistically, then the assistant reply", async () => {
 		const result = await renderAuthedChat();
 		mockedChatService.sendMessage.mockResolvedValue({
