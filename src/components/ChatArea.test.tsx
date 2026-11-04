@@ -10,13 +10,17 @@ vi.mock("../context/ChatContext", () => ({
 	useChat: () => ({ messages, isLoading, sendMessage: vi.fn() }),
 }));
 
-const scrollToSpy = vi.fn();
+let scrollToSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
 	messages = [];
 	isLoading = false;
+	// setup.ts installs scrollTo as a vi.fn() under jsdom, so spyOn hands back
+	// that same mock with the previous test's calls still recorded.
+	scrollToSpy = vi
+		.spyOn(Element.prototype, "scrollTo")
+		.mockImplementation(() => {});
 	scrollToSpy.mockClear();
-	Element.prototype.scrollTo = scrollToSpy;
 });
 
 describe("ChatArea auto-scroll", () => {
@@ -37,6 +41,17 @@ describe("ChatArea auto-scroll", () => {
 		scrollToSpy.mockClear();
 
 		isLoading = true;
+		rerender(<ChatArea />);
+
+		expect(scrollToSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("scrolls when another conversation with the same message count is opened", () => {
+		messages = [{ id: "a1", role: "user", content: "Oi" }];
+		const { rerender } = render(<ChatArea />);
+		scrollToSpy.mockClear();
+
+		messages = [{ id: "b1", role: "user", content: "Outra" }];
 		rerender(<ChatArea />);
 
 		expect(scrollToSpy).toHaveBeenCalledTimes(1);
