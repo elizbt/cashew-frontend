@@ -18,6 +18,8 @@ Entra:
   origem era nova e devolveu `chatId`, ela entra no histórico da barra lateral, mas não vira a conversa atual.
 - `loadChat`: só o último pedido aplica mensagens e `currentChatId`; respostas de pedidos anteriores são ignoradas.
 - O mesmo vale para a mensagem de erro do `sendMessage`: não aparece em outra conversa.
+- O estado de espera (indicador de digitação e campo de texto bloqueado) pertence à conversa em que a pergunta foi
+  feita: ao trocar de conversa ou abrir uma nova, a outra tela fica livre para uso.
 
 Fica de fora: cancelar a requisição no servidor (`AbortController`) — opcional, não exigido.
 
@@ -27,8 +29,10 @@ Fica de fora: cancelar a requisição no servidor (`AbortController`) — opcion
 - [ ] Enviar numa conversa nova, clicar "Nova Conversa" antes da resposta: a tela continua vazia e a conversa de
       origem aparece no histórico.
 - [ ] `loadChat(A)` seguido de `loadChat(B)` com A respondendo depois: a tela mostra B e `currentChatId === B`.
+- [ ] Enviar em A e trocar para B antes da resposta: B não mostra o indicador de digitação e o campo de texto fica
+      liberado.
 - [ ] Caminho feliz atual (enviar e receber na mesma conversa) continua passando.
-- [ ] Testes em `ChatContext.test.tsx` cobrindo os três cenários acima.
+- [ ] Testes em `ChatContext.test.tsx` cobrindo os cenários acima.
 
 ## Contrato
 
