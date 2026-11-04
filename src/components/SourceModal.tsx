@@ -1,5 +1,5 @@
 import { BookOpen, X } from "lucide-react";
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useDialogFocus } from "../hooks/use-dialog-focus";
 import { Button } from "./ui/Button";
@@ -11,29 +11,53 @@ interface SourceModalProps {
 	sources: string[];
 }
 
-const renderSource = (text: string) => {
-	// http(s) URL up to the next whitespace, but never ending on sentence
-	// punctuation, so "veja https://site.br." links to https://site.br.
-	const urlRegex = /(https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)\]])/g;
-	const parts = text.split(urlRegex);
+// http(s) URL up to the next whitespace or quote/angle bracket.
+const URL_PATTERN = /https?:\/\/[^\s<>"]+/g;
+const TRAILING_PUNCTUATION = /[.,;:!?'\]]$/;
 
-	return parts.map((part, i) => {
-		if (part.match(urlRegex)) {
-			return (
-				<a
-					/* biome-ignore lint/suspicious/noArrayIndexKey: using index for unique keys */
-					key={i}
-					href={part}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="text-secondary hover:text-primary underline break-all"
-				>
-					{part}
-				</a>
-			);
+const countChar = (text: string, char: string) => text.split(char).length - 1;
+
+// Sentence punctuation right after a URL is prose, not part of it, so
+// "veja https://site.br." links to https://site.br. A trailing ")" only
+// belongs to the URL when it closes a "(" inside it, as in
+// https://pt.wikipedia.org/wiki/Foo_(bar), but not in "(veja https://site.br)".
+const trimUrl = (raw: string) => {
+	let url = raw;
+	for (;;) {
+		if (TRAILING_PUNCTUATION.test(url)) {
+			url = url.slice(0, -1);
+		} else if (url.endsWith(")") && countChar(url, ")") > countChar(url, "(")) {
+			url = url.slice(0, -1);
+		} else {
+			return url;
 		}
-		return part;
-	});
+	}
+};
+
+const renderSource = (text: string) => {
+	const parts: React.ReactNode[] = [];
+	let cursor = 0;
+
+	for (const match of text.matchAll(URL_PATTERN)) {
+		const url = trimUrl(match[0]);
+		if (!/^https?:\/\/./.test(url)) continue;
+		parts.push(text.slice(cursor, match.index));
+		parts.push(
+			<a
+				key={match.index}
+				href={url}
+				target="_blank"
+				rel="noopener noreferrer"
+				className="text-secondary hover:text-primary underline break-all"
+			>
+				{url}
+			</a>,
+		);
+		cursor = match.index + url.length;
+	}
+	parts.push(text.slice(cursor));
+
+	return parts;
 };
 
 export const SourceModal: React.FC<SourceModalProps> = ({
@@ -42,6 +66,7 @@ export const SourceModal: React.FC<SourceModalProps> = ({
 	sources,
 }) => {
 	const dialogRef = useRef<HTMLDivElement>(null);
+	const titleId = useId();
 	useDialogFocus(dialogRef, isOpen, onClose);
 
 	if (!isOpen) return null;
@@ -60,14 +85,14 @@ export const SourceModal: React.FC<SourceModalProps> = ({
 				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
-				aria-labelledby="source-modal-title"
+				aria-labelledby={titleId}
 				onClick={(e) => e.stopPropagation()}
 				className="max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200"
 			>
 				<div className="flex items-center justify-between p-4 border-b border-emerald-100 bg-emerald-50/30">
 					<div className="flex items-center gap-2 text-primary">
 						<BookOpen size={20} />
-						<h3 id="source-modal-title" className="font-semibold text-lg">
+						<h3 id={titleId} className="font-semibold text-lg">
 							Fontes e Referências
 						</h3>
 					</div>
