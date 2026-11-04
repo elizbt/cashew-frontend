@@ -19,8 +19,9 @@ export const ChatArea: React.FC = () => {
 	}, []);
 
 	useEffect(() => {
+		if (messages.length === 0 && !isLoading) return;
 		scrollToBottom();
-	}, [scrollToBottom]);
+	}, [messages.length, isLoading, scrollToBottom]);
 
 	return (
 		<div className="flex-1 flex flex-col bg-white relative">

@@ -111,8 +111,8 @@ describe("AuthContext", () => {
 	it("signOut invalidates the server session, clears every local auth/cache key, and redirects to /login", async () => {
 		localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({ id: "1" }));
 		localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([]));
-		localStorage.setItem(STORAGE_KEYS.CHAT_CACHE("chat-1"), JSON.stringify([]));
-		localStorage.setItem(STORAGE_KEYS.CHAT_CACHE("chat-2"), JSON.stringify([]));
+		localStorage.setItem("@Castanha:chat_cache_chat-1", JSON.stringify([]));
+		localStorage.setItem("@Castanha:chat_cache_chat-2", JSON.stringify([]));
 		// A token left over from before the httpOnly-cookie migration should
 		// still get swept up by the general STORAGE_KEYS cleanup loop.
 		localStorage.setItem(STORAGE_KEYS.TOKEN, "stale-legacy-token");
@@ -128,11 +128,22 @@ describe("AuthContext", () => {
 		expect(mockedAuthService.logout).toHaveBeenCalledTimes(1);
 		expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBeNull();
 		expect(localStorage.getItem(STORAGE_KEYS.USER)).toBeNull();
-		expect(localStorage.getItem(STORAGE_KEYS.CHAT_CACHE("chat-1"))).toBeNull();
-		expect(localStorage.getItem(STORAGE_KEYS.CHAT_CACHE("chat-2"))).toBeNull();
+		expect(localStorage.getItem("@Castanha:chat_cache_chat-1")).toBeNull();
+		expect(localStorage.getItem("@Castanha:chat_cache_chat-2")).toBeNull();
 		expect(localStorage.getItem("unrelated-key")).toBe("keep-me");
 		expect(result.current.isAuthenticated).toBe(false);
 		expect(window.location.href).toBe("/login");
+	});
+
+	it("deletes chat caches left by older builds as soon as the app loads", async () => {
+		localStorage.setItem("@Castanha:chat_cache_old", JSON.stringify([]));
+		localStorage.setItem("unrelated-key", "keep-me");
+
+		const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+		await waitFor(() => expect(result.current.loading).toBe(false));
+
+		expect(localStorage.getItem("@Castanha:chat_cache_old")).toBeNull();
+		expect(localStorage.getItem("unrelated-key")).toBe("keep-me");
 	});
 
 	it("still logs out locally even if the server-side logout call fails", async () => {

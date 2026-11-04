@@ -30,6 +30,21 @@ function readStoredUser(): User | null {
 	}
 }
 
+// Older builds wrote every conversation's messages here and never read them
+// back; they are only deleted now, so no message content lingers in the browser.
+const LEGACY_CHAT_CACHE_PREFIX = "@Castanha:chat_cache_";
+
+function removeLegacyChatCaches() {
+	const keys = Array.from({ length: localStorage.length }, (_, i) =>
+		localStorage.key(i),
+	);
+	for (const key of keys) {
+		if (key?.startsWith(LEGACY_CHAT_CACHE_PREFIX)) {
+			localStorage.removeItem(key);
+		}
+	}
+}
+
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
@@ -47,6 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 		// Sessions from before the cookie migration left a readable JWT here;
 		// the backend still accepts it as Bearer, so it must not linger.
 		localStorage.removeItem(STORAGE_KEYS.TOKEN);
+		removeLegacyChatCaches();
 
 		const storedUser = readStoredUser();
 		if (storedUser) {
@@ -72,21 +88,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 			console.error("Failed to invalidate session on the server:", error);
 		}
 
-		// Clear all keys from localStorage
 		Object.values(STORAGE_KEYS).forEach((key) => {
-			if (typeof key === "string") {
-				localStorage.removeItem(key);
-			}
+			localStorage.removeItem(key);
 		});
-
-		// Also clear all cache entries (since they use a function)
-		for (let i = 0; i < localStorage.length; i++) {
-			const key = localStorage.key(i);
-			if (key?.startsWith("@Castanha:chat_cache_")) {
-				localStorage.removeItem(key);
-				i--; // Adjust index after removal
-			}
-		}
+		removeLegacyChatCaches();
 
 		setUser(null);
 		window.location.href = "/login";
