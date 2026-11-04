@@ -3,6 +3,8 @@ export interface Message {
 	role: "user" | "assistant";
 	content: string;
 	sources?: string[];
+	/** Client-side error placeholder, not an answer from the assistant. */
+	isError?: boolean;
 }
 
 export interface ChatSession {

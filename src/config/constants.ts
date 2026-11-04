@@ -9,3 +9,8 @@ export const UI_CONFIG = {
 	MAX_CHAT_HISTORY: 50,
 	MAX_TEXTAREA_HEIGHT: 200,
 };
+
+// Shown when an assistant answer comes without its own sources (fallback
+// answers, or messages saved before the backend persisted sources): every
+// answer must point somewhere the student can confirm the information.
+export const DEFAULT_SOURCE_URL = "https://www.ifnmg.edu.br";

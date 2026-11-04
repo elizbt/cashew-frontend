@@ -222,6 +222,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			const errorMessage: Message = {
 				id: createMessageId(),
 				role: "assistant",
+				isError: true,
 				content: `Erro ${err.response?.status || ""}: Não foi possível obter resposta do servidor. Verifique se o backend está rodando corretamente.`,
 			};
 			setMessages((prev) => [...prev, errorMessage]);

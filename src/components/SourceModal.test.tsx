@@ -44,6 +44,56 @@ describe("SourceModal", () => {
 		expect(link).toHaveAttribute("rel", "noopener noreferrer");
 	});
 
+	it("does not swallow trailing punctuation into the link", () => {
+		render(
+			<SourceModal
+				isOpen
+				onClose={vi.fn()}
+				sources={["Fonte: https://www.ifnmg.edu.br/estude-no-ifnmg."]}
+			/>,
+		);
+
+		expect(screen.getByRole("link")).toHaveAttribute(
+			"href",
+			"https://www.ifnmg.edu.br/estude-no-ifnmg",
+		);
+	});
+
+	it("keeps balanced parentheses in the URL but not the ones around it", () => {
+		render(
+			<SourceModal
+				isOpen
+				onClose={vi.fn()}
+				sources={[
+					"https://pt.wikipedia.org/wiki/Foo_(bar) (veja https://www.ifnmg.edu.br).",
+				]}
+			/>,
+		);
+
+		const [wiki, site] = screen.getAllByRole("link");
+		expect(wiki).toHaveAttribute(
+			"href",
+			"https://pt.wikipedia.org/wiki/Foo_(bar)",
+		);
+		expect(site).toHaveAttribute("href", "https://www.ifnmg.edu.br");
+		expect(screen.getByRole("listitem")).toHaveTextContent(
+			"https://pt.wikipedia.org/wiki/Foo_(bar) (veja https://www.ifnmg.edu.br).",
+		);
+	});
+
+	it("renders in a portal on document.body so a transformed ancestor can't confine the overlay", () => {
+		const { container } = render(
+			<div style={{ transform: "translateY(0)" }}>
+				<SourceModal isOpen onClose={vi.fn()} sources={["Fonte"]} />
+			</div>,
+		);
+
+		const dialog = screen.getByRole("dialog");
+		expect(container.contains(dialog)).toBe(false);
+		expect(document.body.contains(dialog)).toBe(true);
+		expect(dialog).toHaveAccessibleName("Fontes e Referências");
+	});
+
 	it("never turns plain (non-http) text into a clickable link, even if it looks like a scheme", () => {
 		render(
 			<SourceModal
