@@ -44,6 +44,21 @@ describe("SourceModal", () => {
 		expect(link).toHaveAttribute("rel", "noopener noreferrer");
 	});
 
+	it("does not swallow trailing punctuation into the link", () => {
+		render(
+			<SourceModal
+				isOpen
+				onClose={vi.fn()}
+				sources={["Fonte: https://www.ifnmg.edu.br/estude-no-ifnmg."]}
+			/>,
+		);
+
+		expect(screen.getByRole("link")).toHaveAttribute(
+			"href",
+			"https://www.ifnmg.edu.br/estude-no-ifnmg",
+		);
+	});
+
 	it("never turns plain (non-http) text into a clickable link, even if it looks like a scheme", () => {
 		render(
 			<SourceModal

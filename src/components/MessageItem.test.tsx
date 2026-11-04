@@ -21,11 +21,24 @@ describe("MessageItem rendering", () => {
 		expect(screen.getByText("itálico").tagName).toBe("EM");
 	});
 
-	it("only shows the sources button when the assistant message has sources", () => {
-		const { rerender } = render(
+	it("shows the sources button on every assistant answer, falling back to the official site", async () => {
+		const user = userEvent.setup();
+		render(
 			<MessageItem
 				message={{ id: "m1", role: "assistant", content: "sem fontes" }}
 			/>,
+		);
+
+		await user.click(screen.getByText(/fontes acadêmicas/i));
+
+		expect(
+			screen.getByRole("link", { name: "https://www.ifnmg.edu.br" }),
+		).toHaveAttribute("href", "https://www.ifnmg.edu.br");
+	});
+
+	it("does not show the sources button on user messages or client-side errors", () => {
+		const { rerender } = render(
+			<MessageItem message={{ id: "m1", role: "user", content: "pergunta" }} />,
 		);
 		expect(screen.queryByText(/fontes acadêmicas/i)).not.toBeInTheDocument();
 
@@ -34,12 +47,12 @@ describe("MessageItem rendering", () => {
 				message={{
 					id: "m2",
 					role: "assistant",
-					content: "com fontes",
-					sources: ["Fonte 1"],
+					content: "Erro 500",
+					isError: true,
 				}}
 			/>,
 		);
-		expect(screen.getByText(/fontes acadêmicas/i)).toBeInTheDocument();
+		expect(screen.queryByText(/fontes acadêmicas/i)).not.toBeInTheDocument();
 	});
 
 	it("opens the source modal listing every source when clicked", async () => {
@@ -89,6 +102,23 @@ describe("MessageItem security: markdown content is not raw HTML", () => {
 		expect(
 			(window as unknown as { __pwned?: boolean }).__pwned,
 		).toBeUndefined();
+	});
+
+	it("turns bare URLs in the answer into safe, new-tab links", () => {
+		render(
+			<MessageItem
+				message={{
+					id: "m1",
+					role: "assistant",
+					content: "Confirme no site oficial (https://www.ifnmg.edu.br).",
+				}}
+			/>,
+		);
+
+		const link = screen.getByRole("link", { name: "https://www.ifnmg.edu.br" });
+		expect(link).toHaveAttribute("href", "https://www.ifnmg.edu.br");
+		expect(link).toHaveAttribute("target", "_blank");
+		expect(link).toHaveAttribute("rel", "noopener noreferrer");
 	});
 
 	it("renders markdown links safely with target=_blank and rel=noopener noreferrer", () => {

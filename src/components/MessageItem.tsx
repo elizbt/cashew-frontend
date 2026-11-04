@@ -1,6 +1,8 @@
 import { Quote } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { DEFAULT_SOURCE_URL } from "../config/constants";
 import type { Message } from "../types/chat";
 import { SourceModal } from "./SourceModal";
 
@@ -11,6 +13,11 @@ interface MessageItemProps {
 export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 	const isAssistant = message.role !== "user";
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const showSources = isAssistant && !message.isError;
+	const sources =
+		message.sources && message.sources.length > 0
+			? message.sources
+			: [DEFAULT_SOURCE_URL];
 
 	return (
 		<div className={"py-6 w-full animate-in bg-transparent"}>
@@ -28,6 +35,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 						}`}
 					>
 						<ReactMarkdown
+							remarkPlugins={[remarkGfm]}
 							components={{
 								a: ({ node, ...props }) => (
 									<a
@@ -68,7 +76,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 							{message.content}
 						</ReactMarkdown>
 
-						{isAssistant && message.sources && message.sources.length > 0 && (
+						{showSources && (
 							<div className="mt-4 pt-2 border-t border-emerald-50 flex justify-end">
 								<button
 									type="button"
@@ -85,11 +93,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 				</div>
 			</div>
 
-			{isAssistant && message.sources && (
+			{showSources && (
 				<SourceModal
 					isOpen={isModalOpen}
 					onClose={() => setIsModalOpen(false)}
-					sources={message.sources}
+					sources={sources}
 				/>
 			)}
 		</div>

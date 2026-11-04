@@ -1,5 +1,6 @@
 import { BookOpen, X } from "lucide-react";
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import { useDialogFocus } from "../hooks/use-dialog-focus";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
@@ -11,7 +12,9 @@ interface SourceModalProps {
 }
 
 const renderSource = (text: string) => {
-	const urlRegex = /(https?:\/\/[^\s]+)/g;
+	// http(s) URL up to the next whitespace, but never ending on sentence
+	// punctuation, so "veja https://site.br." links to https://site.br.
+	const urlRegex = /(https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)\]])/g;
 	const parts = text.split(urlRegex);
 
 	return parts.map((part, i) => {
@@ -43,7 +46,10 @@ export const SourceModal: React.FC<SourceModalProps> = ({
 
 	if (!isOpen) return null;
 
-	return (
+	// Portal to body: MessageItem's `animate-in` leaves a transform on the
+	// message wrapper, which would make this `fixed` overlay cover only the
+	// message box instead of the viewport.
+	return createPortal(
 		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled by useDialogFocus; this is a mouse-only backdrop dismiss
 		// biome-ignore lint/a11y/noStaticElementInteractions: backdrop is not itself a control, just a dismiss target
 		<div
@@ -96,6 +102,7 @@ export const SourceModal: React.FC<SourceModalProps> = ({
 					</Button>
 				</div>
 			</Card>
-		</div>
+		</div>,
+		document.body,
 	);
 };
