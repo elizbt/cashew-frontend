@@ -7,12 +7,21 @@ export const Suggestions: React.FC = () => {
 				Bem-vindo ao Castanha
 			</h1>
 			<p className="text-xl text-slate-700 font-light max-w-xl leading-relaxed">
-				Este é um projeto independente para ajudar estudantes a encontrarem
-				informações sobre os cursos superiores por aqui.
+				Este é um assistente para tirar dúvidas sobre os cursos superiores do
+				IFNMG – Campus Araçuaí. Ele não é um canal oficial da instituição.
 			</p>
-			<p className="text-base text-slate-500 italic max-w-md">
-				Nota: Para atendimento oficial ou burocrático, consulte a secretaria do
-				campus.
+			<p className="text-base text-slate-500 italic max-w-lg">
+				As respostas se baseiam em documentos públicos do IFNMG e podem conter
+				imprecisões. Confirme informações importantes no site oficial do{" "}
+				<a
+					href="https://www.ifnmg.edu.br"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="text-secondary hover:text-primary underline underline-offset-2"
+				>
+					IFNMG
+				</a>
+				.
 			</p>
 		</div>
 	);
